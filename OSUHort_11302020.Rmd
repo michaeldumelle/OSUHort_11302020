@@ -10,20 +10,44 @@ output:
     fig_width: 3.75
     fig_height: 2.6
     fig_caption: true
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
 urlcolor: blue
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>", 
+  warning = FALSE, 
+  message = FALSE,
+  include = TRUE, 
+  echo = FALSE
+)
 ```
 
-```{r load packages, include = FALSE, echo = FALSE}
+```{r load packages}
 # need to use install.packages("packagename") first where packagename is 
 # the name of a general package (like nlme, for example)
 library(knitr)
 library(tidyverse)
 library(nlme)
 library(emmeans)
+library(kableExtra)
+library(car)
 
 # options for text size: Huge > huge > LARGE > Large > large > normalsize > small > footnotesize > scriptsize > tiny
 ```
@@ -37,6 +61,24 @@ library(emmeans)
 * PhD in Statistics from Oregon State University (2020)
 
 * Research statistician at the Environmental Protection Agency
+
+* I will interweave R code to illustrate ideas
+
+```{r}
+this_is_a_function <- function(argument) {
+  return(argument)
+}
+this_is_an_argument <- "this is output"
+```
+
+\scriptsize
+
+```{r, echo = TRUE}
+
+# this is a comment
+this_is_some_code <- this_is_a_function(this_is_an_argument)
+print(this_is_some_code)
+```
 
 ## Background
 
@@ -189,28 +231,167 @@ Poses pratical considerations:
 
 # Application
 
-## Example
+## Percent Green Cover
 
-\tiny
+```{r turfgrass image, echo = FALSE, fig.align = "center", out.width = "75%", out.height = "75%"}
+include_graphics("turfgrass.png")
+```
 
-```{r, include = FALSE, echo = FALSE}
-data <- read_csv("C:/Users/mdumelle/Documents/presentations/OSUHort_11302020/GitHub/OSUHort_11302020/data.csv")
+## Create Data
+
+- Use a simulation to compare ANOVA and GVANOVA
+
+    - So helpful because we know the truth!
+    
+    - Study several scenarios without having to design an experiment, collect data, etc.
+    
+```{r}
+sim_df <- data.frame(Treatment = c("A", "B", "C", "D"),
+                     Mean = c(50, 50, 58, 60),
+                     StDev = c(5, 2, 1, 0.5),
+                     Replicates = c(8, 8, 8, 8))
+kableExtra::kbl(sim_df, booktabs = T, caption = "Treatment Means, Standard Deviations (StDev), and Replicates") %>%
+  kable_styling(latex_options = "striped")
+```
+
+## Create Data
+    
+
+- Study pairwise differences between treatments at $\alpha = 0.05$
+
+    - For each comparison, compute a test statistic and a p-value
+    
+    - Reject a true null hypothesis (Type I error, false positive)
+    
+    - Do not reject a true alternative hypothesis (Type II error, false negative)
+
+    - Family-wise error rate is $\alpha \rightarrow$ multiple comparison adjustment (Bonferroni)
+    
+    - Degree of freedom adjustments (Sattherwaite)
+
+## Create Data
+
+\small
+
+```{r}
+create_data <- function(treatments, means, stdevs, replicates) {
+  n <- sum(replicates)
+  treatments <- factor(rep(treatments, times = replicates))
+  means <- rep(means, times = replicates)
+  stdevs <- rep(stdevs, times = replicates)
+  sigma <- diag(stdevs^2)
+  response <- as.vector(means + t(chol(sigma)) %*% rnorm(n))
+  data <- data.frame(treatments, response)
+}
+```
+
+```{r, echo = TRUE}
+set.seed(1130)
+data <- create_data(treatments = c("A", "B", "C", "D"), 
+                    means = c(50, 50, 58, 60),
+                    stdevs = c(5, 2, 1, 0.5),
+                    replicates = c(8, 8, 8, 8))
+head(data, n = 9)
+```
+
+
+## Create Data
+
+```{r, fig.cap = "Caption"}
+ggplot(data, aes(x = treatments, y = response)) +
+  geom_point(size = 0.8)  +
+  labs(x = "Treatment Group",
+       y = "Percent Green Cover") +
+  theme(title = element_text(size = 9))
+```
+
+## Create Data
+
+```{r}
+ggplot(data, aes(x = treatments, y = log(response))) +
+  geom_point(size = 0.8)  +
+  labs(x = "Treatment Group",
+       y = "Percent Green Cover") +
+  theme(title = element_text(size = 9))
+```
+
+
+## Data Summaries
+
+\small
+
+```{r, echo = TRUE}
+group_summaries <- data %>% 
+  group_by(treatments) %>%
+  summarize(grp_mean = mean(response),
+            grp_stdev = sd(response))
 ```
 
 ```{r}
-anova_mod <- gls(response ~ trt, data = data)
-anova(anova_mod)
-emmeans(anova_mod, list(pairwise ~ trt), adjust = "bonferroni")
+kableExtra::kbl(group_summaries, 
+                booktabs = T,
+                caption = "Treatment Group Summaries",
+                col.names = c("Treatments", "Group Mean", "Group StDev"),
+                digits = 3) %>%
+  kable_styling(latex_options = "striped")
 ```
+
+
+## Are the Unequal Variances a Problem?
+
+\footnotesize
+
+```{r, echo = TRUE}
+# ratio of largest and smallest stdev
+max_stdev <- max(group_summaries$grp_stdev)
+min_stdev <-  min(group_summaries$grp_stdev)
+stdev_ratio <- max_stdev / min_stdev
+stdev_ratio
+stdev_ratio > 3
+
+# levene's test
+leveneTest(response ~ treatments, data = data)
+```
+
+
+## Fit Models
+
+\tiny
+
+```{r, echo = TRUE}
+anova_mod <- gls(response ~ treatments, data = data)
+anova_trtmeans <- emmeans(anova_mod, "treatments")
+pairs(anova_trtmeans, adjust = "bonferroni")
+```
+
+```{r, eval = FALSE, echo = TRUE}
+# SAS Code
+proc mixed data=data;
+  class treatments;
+  model response = treatments;
+  lsmeans treatments / diff adjust=BON;
+run;
+```
+
 
 ## Example
 
 \tiny 
 
-```{r}
-gvanova_mod <- gls(response ~ trt, weights = varIdent(form = ~ 1|trt), data = data)
-anova(gvanova_mod)
-emmeans(gvanova_mod, list(pairwise ~ trt), adjust = "bonferroni")
+```{r, echo = TRUE}
+gvanova_mod <- gls(response ~ treatments, weights = varIdent(form = ~ 1|treatments), data = data)
+gvanova_trtmeans <- emmeans(gvanova_mod, "treatments")
+pairs(gvanova_trtmeans, adjust = "bonferroni")
+```
+
+```{r, eval = FALSE, echo = TRUE}
+# SAS Code
+proc mixed data=data;
+  class treatments;
+  model response = treatments / ddfm=SAT; # this is different
+  repeated / group = treatments; # this is different
+  lsmeans treatments / diff adjust=BON;
+run;
 ```
 
 \normalsize
