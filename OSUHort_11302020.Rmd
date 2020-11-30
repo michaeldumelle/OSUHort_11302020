@@ -69,15 +69,7 @@ library(car)
     
     * Faculty are encouraged too - separate process
     
-## Background
-
-* Use Analysis of Variance (ANOVA) to study designed experiments
-
-    * Are there *statistically significant differences* among treatment effects?
-
-* One common problem: unequal variance / standard deviation within treatment groups
-
-    * Focus of the talk!
+    * [https://stat.oregonstate.edu/content/consulting-services](https://stat.oregonstate.edu/content/consulting-services)
     
 ## Accessing Slides
     
@@ -95,53 +87,61 @@ this_is_an_argument <- "this is output"
 ```{r, echo = TRUE}
 
 # this is a comment
-this_is_some_code <- this_is_a_function(this_is_an_argument)
-print(this_is_some_code)
+this_is_an_object <- this_is_a_function(this_is_an_argument)
+this_is_an_object
+
+# mean of 1, 2, 3
+x <- c(1, 2, 3)
+mean(x)
 ```
 
 \normalsize
 
-* Slides and code available on my GitHub [here](https://github.com/michaeldumelle/OSUHort_11302020)
+* Slides and code available on my GitHub 
+
+    * [https://github.com/michaeldumelle/OSUHort_11302020](https://github.com/michaeldumelle/OSUHort_11302020)
+    
+    * [https://michaeldumelle.github.io/](https://michaeldumelle.github.io/) $\rightarrow$ CV $\rightarrow$ Presentations
 
 * Slide numbers in bottom left
+    
+## Background
 
+* Use Analysis of Variance (ANOVA) to study designed experiments
+
+    * Are there *statistically significant differences* among treatment effects?
+
+* One common problem: unequal variance within treatment groups
+
+    * Non constant variance, heterogeneous variance
+
+    * Focus of the talk!
+    
+* Will be an **initial introduction** to addressing this problem using GVANOVA
+
+    * An **Illustration of concepts**, not an exhaustive comparison of ANOVA and GVANOVA
+    
 # ANOVA
 
-## Experiment Roadmap 
+## ANOVA Overview
 
-1. Formulate a hypothesis
-
-2. Choose an experimental design
-
-3. Choose an analysis method
-
-4. Randomize treatments
-
-5. Collect data
-
-6. Analyze data (focus of the talk)
-
-7. Report results
-
-## Experiment Roadmpap
-
-* Often use ANOVA to analyze data
+* Often use ANOVA to analyze data from a designed experiment
 
     * Focus on one-way ANOVA with categorical (group) structure
     
-    * $Y_i = \mu + \alpha_i + \epsilon_i$
-    
     * Response = True Mean + Treatment Effect + Random Error
+    
+    * $Y_i = \mu + \alpha_i + \epsilon_i, i = 1, . . . , n$, Var($\epsilon_i) = \sigma^2$)
+    
+* Several attractive propreties **when assumptions are satisfied** (accurate, precise, p-values reliable)
 
-* Several attractive propreties (accurate, precise, p-values reliable) **when assumptions are satisfied**
-
-* One important assumption **constant variance**
+* One important assumption **constant variance (homogeneous variance)**
 
     * All $\epsilon_i$ have the same variance (standard deviation)
     
     * standard deviation = $\sqrt{\text{variance}}$
     
-* What about using ANOVA when the data do not have constant variance?
+* Explore ANOVA on percent green cover data having non constant variance (heterogeneous variance)
 
 
 ## Percent Green Cover Data
@@ -170,7 +170,7 @@ kbl(sim_df, booktabs = T, caption = "Treatment Means, Standard Deviations (StDev
 
 ## Percent Green Cover Data
 
-\footnotesize
+\scriptsize
 
 ```{r}
 create_data <- function(treatments, means, stdevs, replicates) {
@@ -209,7 +209,7 @@ ggplot(data, aes(x = treatments, y = pct_green)) +
 
 ## ANOVA Code
 
-* Let's perform an ANOVA
+* Let's perform an ANOVA assuming constant variance -- pretend we don't know the truth!
 
 \scriptsize
 
@@ -246,9 +246,9 @@ emmeans_output_anova <- pairs(anova_trtmeans, adjust = "bonferroni") # emmeans p
 ```{r}
 emmeans_df_anova <- as.data.frame(emmeans_output_anova)
 kableExtra::kbl(
-  emmeans_df_anova, 
+  emmeans_df_anova %>% select(contrast:df), 
   booktabs = T,
-  caption = "ANOVA Pairwise Comparison Results. P-values have been adjusted for multiple comparisons using the Bonferroni method.",
+  caption = "ANOVA Pairwise Comparison Results",
   digits = 3
   ) %>%
   kable_styling(latex_options = "striped") %>%
@@ -256,11 +256,27 @@ kableExtra::kbl(
   column_spec(4, color = spec_color(emmeans_df_anova$df, option = "D"))
 ```
 
+* Next we need to check assumptions!
+
 ## ANOVA Residuals
 
-* Use residuals (normalized) to check assumptions!
+* Commonly use ANOVA residuals to check assumptions
 
-    * Regular residuals divided by their standard deviations
+* Recall the ANOVA model: $Y_i = \mu + \alpha_i + \epsilon_i$
+
+    * Fitted values: $\hat{\mu} + \hat{\alpha}_i$ (group mean)
+    
+    * Residual: $Y_i - (\hat{\mu} + \hat{\alpha}_i)$ (observed value minus fitted value)
+
+* Use residuals (normalized) to check constant variance assumptions!
+
+    * Residuals divided by their estimated standard deviation are normalized residuals
+    
+* Fitted vs residuals plot should show even spread around zero if variance is constant
+
+## ANOVA Residuals
+
+* That variance does $\color{red}{\text{NOT}}$ look constant!
 
 ```{r, fig.align = "center", out.width = "50%", out.height = "50%", fig.cap = "Fitted Values vs Normalized residuals Using ANOVA for Percent Green Cover"}
 fitted_values <- fitted(anova_model)
@@ -273,11 +289,9 @@ ggplot(check_anova_assumptions, aes(x = fitted_values, y = residuals)) +
 ```
 
 
-* That variance does $\color{red}{\text{NOT}}$ look constant!
-
 ## Can We Trust Our Analysis?
 
-```{r boxplot image, echo = FALSE, fig.align = "center", out.width = "65%", out.height = "65%"}
+```{r boxplot image, echo = FALSE, fig.align = "center", out.width = "60%", out.height = "60%", fig.cap = "Can we trust our ANOVA results when the variance is not constant?"}
 include_graphics("trust_boxplot.png")
 ```
 
@@ -285,13 +299,13 @@ include_graphics("trust_boxplot.png")
 
 ## Warning Signs?
 
-* Were there any warning signs?
+* In addition to the fitted vs residuals plot, were there any other warning signs?
 
     * $\color{red}{\text{YES}}$
 
 * What were they?
 
-1. Graphics
+1. Graphics of the Data
 
 2. Ratio of largest variance and smallest variance
 
@@ -301,10 +315,10 @@ include_graphics("trust_boxplot.png")
 
 * It it looks off, it probabily is!
 
-* Similar to the spread we saw in data (should also visualize data!)
+* Similar to the spread we saw in fitted vs residuals plot
 
-```{r, fig.align = "center", out.width = "50%", out.height = "50%", fig.cap = "Fitted Values vs Normalized Residuals Using ANOVA for Percent Green Cover"}
-ggplot(check_anova_assumptions, aes(x = fitted_values, y = residuals)) +
+```{r, fig.align = "center", out.width = "50%", out.height = "50%", fig.cap = "Percent Green Cover by Treatment Group."}
+ggplot(data, aes(x = treatments, y = pct_green)) +
   geom_point(size = 0.8)  +
   labs(x = "Treatment Group",
        y = "Percent Green Cover") +
@@ -325,18 +339,18 @@ ggplot(check_anova_assumptions, aes(x = fitted_values, y = residuals)) +
   group_by(treatments) %>%
   summarize(grp_stdev = sd(pct_green)))
 (stdev_ratio <- max(trt_stdevs$grp_stdev) / 
-    min(trt_stdevs$grp_stdev))
+    min(trt_stdevs$grp_stdev)) # much higher than 3!
 ```
 
 ## Statistical Tests for Constant Varince
 
 * Hypothesis test constant variance assumption is questioned
 
-    * Low p-value $\rightarrow$ evidence the variances are $\color{red}{\text{NOT}}$ equal
-    
     * Levene's test, Brown-Forsythe test are two examples -- there are many others
     
     * Come with their own assumptions
+    
+    * Low p-value $\rightarrow$ evidence the variances are $\color{red}{\text{NOT}}$ equal
 
 \scriptsize
 
@@ -371,9 +385,9 @@ leveneTest(pct_green ~ treatments,
     
 ## Transformations
 
-* Most common is the log$_e(Y)$ transformation -- lets hope this works!
+* Most common is the log transformation -- lets hope this works!
 
-```{r, fig.align = "center", out.width = "45%", out.height = "45%", fig.cap = "Fitted Values vs Normalized Residuals Using ANOVA for Log$_e$ Percent Green Cover"}
+```{r, fig.align = "center", out.width = "45%", out.height = "45%", fig.cap = "Fitted Values vs Normalized Residuals Using ANOVA for Log$_e$ of Percent Green Cover"}
 # Perform the ANOVA on the log percent green
 loganova_model <- gls(log(pct_green) ~ treatments, data = data) # nlme package
 fitted_values <- fitted(loganova_model)
@@ -390,11 +404,11 @@ ggplot(check_loganova_assumptions, aes(x = fitted_values, y = residuals)) +
 
 # GVANOVA
 
-## What is GV-ANOVA?
+## What is GVANOVA?
 
-* Can use Generalized Variance ANOVA (GV-ANOVA) to directly model variances within groups
+* Can use Generalized Variance ANOVA (GVANOVA) to directly model variances within groups
 
-    * Separate variance for each treatment level
+    * Separate variance for each group, Var($\epsilon_i = \sigma^2_{g}$)
     
     * No mean / variance relationship required
     
@@ -402,7 +416,7 @@ ggplot(check_loganova_assumptions, aes(x = fitted_values, y = residuals)) +
     
     * More variance parameters require estimation
     
-* Goal of this talk is to introduce an alternative approach to transformations
+* Goal here is to introduce an alternative approach to transformations
 
     * Important to be aware of both -- transformations are still a useful tool in the toolbox!
 
@@ -447,11 +461,11 @@ emmeans_output_gvanova <- pairs(gvanova_trtmeans, adjust = "bonferroni") #emmean
 \small
 
 ```{r}
-emmeans_df_gvanova <- as.data.frame(emmeans_output_gvanova)
+emmeans_df_gvanova <- as.data.frame(emmeans_output_gvanova) 
 kbl(
-  emmeans_df_gvanova, 
+  emmeans_df_gvanova %>% select(contrast:df), 
   booktabs = T,
-  caption = "GVANOVA Pairwise Comparison Output. P-values have been adjusted for multiple comparisons using the Bonferroni method.",
+  caption = "GVANOVA Pairwise Comparison Output",
   digits = 3
   ) %>%
   kable_styling(latex_options = "striped") %>%
@@ -459,29 +473,6 @@ kbl(
   column_spec(4, color = spec_color(emmeans_df_gvanova$df, option = "D"))
 ```
 
-
-## ANOVA vs GVANOVA
-
-```{r}
-emmeans_df <- left_join(emmeans_df_anova, emmeans_df_gvanova, by = "contrast", suffix = c(".anova", ".gvanova")) %>%
-  select(contrast, SE.anova, SE.gvanova, p.value.anova, p.value.gvanova) %>% 
-  mutate(true.diff = c(0, -8, -10, -8, -10, -2))
-kbl(
-  emmeans_df, 
-  booktabs = T, 
-  caption = "Standard Errors and P-values of ANOVA (*.a) and GVANOVA (*.gva)",
-  digits = 3,
-  col.names = c("contrast", "SE.a", "SE.gva", "p.a", "p.gva", "true.diff")
-  ) %>%
-  kable_styling(latex_options = "striped", font_size = 12) %>%
-  column_spec(2, color = spec_color(emmeans_df$SE.anova, option = "D")) %>%
-  column_spec(3, color = spec_color(emmeans_df$SE.gvanova, option = "D")) %>%
-  column_spec(5, color = c("red", rep("black", 4), "red"))
-```
-
-* More uncertainty refleted in `Trt1 - Trt2`
-
-* Less uncertainty reflected in `Trt3 - Trt4`
 
 ## GVANOVA Residuals
 
@@ -499,6 +490,40 @@ ggplot(check_gvanova_assumptions, aes(x = fitted_values, y = residuals)) +
   theme(title = element_text(size = 11))
 ```
 
+## ANOVA vs GVANOVA
+
+```{r}
+true.diff <- c(0, -8, -10, -8, -10, -2)
+true.vars <- c(25, 4, 1, 0.25)
+nreps <- 8
+true.se <- sqrt(c(true.vars[1]/nreps + true.vars[2]/nreps, 
+                   true.vars[1]/nreps + true.vars[3]/nreps,
+                   true.vars[1]/nreps + true.vars[4]/nreps,
+                   true.vars[2]/nreps + true.vars[3]/nreps,
+                   true.vars[2]/nreps + true.vars[4]/nreps,
+                   true.vars[3]/nreps + true.vars[4]/nreps)
+                 )
+emmeans_df <- left_join(emmeans_df_anova, emmeans_df_gvanova, by = "contrast", suffix = c(".anova", ".gvanova")) %>%
+  mutate(true.diff = true.diff, true.se = true.se) %>%
+  select(contrast, true.se, SE.anova, SE.gvanova, true.diff, p.value.anova, p.value.gvanova)
+kbl(
+  emmeans_df, 
+  booktabs = T, 
+  caption = "Standard Errors and P-values of ANOVA (*.a) and GVANOVA (*.gva). True contrast standard errors (c.se) and differences (c.d) are provided for context. ",
+  digits = 3,
+  col.names = c("contrast", "c.se", "SE.a", "SE.gva","c.d", "p.a", "p.gva")
+  ) %>%
+  kable_styling(latex_options = "striped", font_size = 12) %>%
+  column_spec(3, color = spec_color(emmeans_df$SE.anova, option = "D")) %>%
+  column_spec(4, color = spec_color(emmeans_df$SE.gvanova, option = "D")) %>%
+  column_spec(7, color = c("red", rep("black", 4), "red"))
+```
+
+* More uncertainty refleted in `Trt1 - Trt2`
+
+* Less uncertainty reflected in `Trt3 - Trt4`
+
+
 # Takeaways
 
 ## Takeaways
@@ -512,3 +537,23 @@ ggplot(check_gvanova_assumptions, aes(x = fitted_values, y = residuals)) +
 * Two approaches: transformations and GVANOVA
 
 * When true variance is not constant, using an analysis approach accomodating this will generally yield **a more accurate representation of the truth**
+
+## Additional Resources
+
+* R: *Mixed Effects Models and Extensions in Ecology with R* by Alain Zuur Et al. 2009.
+
+    * Chapter 4
+    
+* SAS: *SAS for Mixed Models* by Ramon C. Littell Et al. 2006.
+
+    * Chapter 9
+
+## Acknowledgements
+
+Thank you to
+
+* Everyone here!
+
+* Horticulture Department at Oregon State University
+
+* Special thanks to Alec Kowalewski and Clint Mattox
